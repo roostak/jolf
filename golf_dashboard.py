@@ -245,7 +245,7 @@ if not approaches.empty:
     fig.update_layout(title="Your Proximity vs PGA Tour", yaxis_title="Feet to Pin", template="plotly_dark", height=500)
     plot(fig)
 
-with st.expander("2–3. Heatmap + 100–150 yd Dispersion", expanded=False):
+with st.expander("2–3. Heatmap + 100–150 yd Dispersion", expanded=True):
     col1, col2 = st.columns([1,1])
     with col1:
         if not approaches.empty:
@@ -309,7 +309,7 @@ with st.expander("4–5. Drive Distance by Hole + Efficiency Zone", expanded=Tru
             fig_eff.add_hrect(y0=160, y1=175, fillcolor="green", opacity=0.2)
             plot(fig_eff)
 
-with st.expander("6–9. Putting, Dispersion, Lie Transitions, Career Volume", expanded=False):
+with st.expander("6–9. Putting, Dispersion, Lie Transitions, Career Volume", expanded=True):
     putts = df[(df['Starting Lie']=='green') & (df['Gimme']==0)]
     if not putts.empty:
         putts['Band'] = pd.cut(putts['Total Distance (yd)'], bins=[0,3,6,10,15,20,30,50],
@@ -356,3 +356,4 @@ st.markdown("""
 
 st.markdown("---")
 st.caption("Jolf 5.0 • Built with love by rossbrandenburg • December 2025 ")
+
