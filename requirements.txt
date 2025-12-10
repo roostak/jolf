@@ -1,0 +1,17 @@
+streamlit>=1.38.0
+pandas
+plotly
+openai
+python-dotenv
+requests
+numpy
+pillow
+# Remove or comment out any lines below that you don't actually use
+
+# If you used langchain at any point:
+# langchain
+# langchain-openai
+
+# If you have any other libraries (e.g. seaborn, matplotlib, etc.):
+# seaborn
+# matplotlib
