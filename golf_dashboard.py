@@ -268,8 +268,9 @@ with st.expander("4–5. Drive Distance by Hole + Efficiency Zone", expanded=Tru
 
     with col1:
         if not drives.empty:
-            # === NEW: Filter out Par 3s (any hole where a tee shot carried <220yd is almost certainly a par 3) ===
-            par3_holes = drives[drives['Carry (yd)'] < 220]['Hole'].unique()
+            # NEW: Detect par 3s based on MAX carry per hole <220 yd (keeps par 4/5s with any long drives)
+            max_carry_per_hole = drives.groupby('Hole')['Carry (yd)'].max()
+            par3_holes = max_carry_per_hole[max_carry_per_hole < 220].index
             non_par3_drives = drives[~drives['Hole'].isin(par3_holes)].copy()
 
             if not non_par3_drives.empty:
@@ -283,31 +284,24 @@ with st.expander("4–5. Drive Distance by Hole + Efficiency Zone", expanded=Tru
                     title="Drive Distance by Hole (Par 4s & 5s Only)",
                     template="plotly_dark",
                     height=650,
-                    points="all",           # Show all individual points
+                    points="all",  # All points visible
                     hover_data=['Course', 'Timestamp']
                 )
-                fig_box.update_traces(
-                    marker=dict(size=10, opacity=0.8),
-                    boxmean=True
-                )
+                fig_box.update_traces(marker=dict(size=12, opacity=0.85))  # Larger, noticeable points
                 fig_box.update_xaxes(type='category', title="Hole Number")
                 fig_box.update_yaxes(title="Total Distance (yards)")
-                fig_box.update_layout(
-                    legend_title="Round",
-                    showlegend=True,
-                    margin=dict(l=20, r=20, t=80, b=60)
-                )
-                # Full width + larger
+                fig_box.update_layout(showlegend=True, legend_title="Round")
+                
+                # Wider: Full container
                 st.plotly_chart(fig_box, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
                 
-                st.caption(f"Showing {len(non_par3_drives)} driver shots from {len(non_par3_drives['Hole'].unique())} non-Par-3 holes")
+                st.caption(f"Showing {len(non_par3_drives)} driver shots from {len(non_par3_drives['Hole'].unique())} non-Par-3 holes (detected as holes with max tee carry >=220 yd)")
             else:
                 st.info("No driver shots found on Par 4s or 5s")
         else:
             st.info("No driver shots found in this data")
 
     with col2:
-        # Efficiency zone — unchanged
         if not drives.empty:
             fig_eff = px.scatter(drives, x='VLA (deg)', y='Ballspeed (mph)', color='Total Distance (yd)', size='Carry (yd)',
                                  title="Driver Efficiency Zone", template="plotly_dark", height=600)
