@@ -311,9 +311,8 @@ with col5:
 st.markdown("---")
 
 # ===========================================================================
-# PANELS WITH RESET BUTTONS ADDED
+# PANEL 1
 # ===========================================================================
-
 st.subheader("1. Approach Proximity by Distance (ft) — PGA Tour Overlay")
 approaches = df[
     df['Starting Lie'].isin(['fairway', 'rough', 'deeprough', 'sand']) &
@@ -340,9 +339,13 @@ if st.button("Reset Zoom / Autoscale", key="reset1", use_container_width=True, t
 
 st.plotly_chart(fig1, use_container_width=True, key=f"chart1_{st.session_state.reset_trigger}")
 
+# ===========================================================================
+# Two-column layout
+# ===========================================================================
 col1, col2 = st.columns(2)
 
 with col1:
+    # 2. Heatmap
     if not approaches.empty:
         pivot = approaches.pivot_table(values='Finish Distance To Pin', index='Band', columns='Starting Lie', aggfunc='mean', observed=True) * 3.28084
         fig2 = go.Figure(data=go.Heatmap(z=pivot.values, x=pivot.columns, y=pivot.index,
@@ -355,6 +358,7 @@ with col1:
 
     st.plotly_chart(fig2, use_container_width=True, key=f"chart2_{st.session_state.reset_trigger}")
 
+    # 3. Dispersion
     mid = approaches[approaches['Carry (yd)'].between(100, 150)]
     if not mid.empty:
         fig3 = px.scatter(mid, x='HLA (deg)', y='Finish Distance To Pin', color='Spin Axis (deg)', size='Ballspeed (mph)',
@@ -379,8 +383,10 @@ with col2:
 
     st.plotly_chart(fig4, use_container_width=True, key=f"chart4_{st.session_state.reset_trigger}")
 
-    fig5 = px.scatter_polar(drives.tail(50), r='Carry (yd)', theta='Spin Axis (deg)', color='HLA (deg)', size='Ballspeed (mph)',
-                            title="5. Drive Dispersion – Last 50", template="plotly_dark")
+    fig5 = px.scatter(drives, x='VLA (deg)', y='Ballspeed (mph)', color='Total Distance (yd)', size='Carry (yd)',
+                      title="5. Driver Efficiency Zone", template="plotly_dark")
+    fig5.add_vrect(x0=11, x1=14, fillcolor="green", opacity=0.2)
+    fig5.add_hrect(y0=160, y1=175, fillcolor="green", opacity=0.2)
 
     if st.button("Reset Zoom / Autoscale", key="reset5", use_container_width=True, type="primary"):
         st.session_state.reset_trigger += 1
@@ -413,7 +419,7 @@ if st.button("Reset Zoom / Autoscale", key="reset6", use_container_width=True, t
 
 st.plotly_chart(fig6, use_container_width=True, key=f"chart6_{st.session_state.reset_trigger}")
 
-# Remaining panels (7–9) with reset buttons
+# 7. Drive Dispersion – Last 50
 st.subheader("7. Drive Dispersion – Last 50")
 if not drives.empty:
     recent = drives.tail(50)
@@ -426,6 +432,7 @@ if st.button("Reset Zoom / Autoscale", key="reset7", use_container_width=True, t
 
 st.plotly_chart(fig7, use_container_width=True, key=f"chart7_{st.session_state.reset_trigger}")
 
+# 8. Where Shots End Up
 st.subheader("8. Where Shots End Up")
 ct = pd.crosstab(df['Starting Lie'], df['Finishing Lie'], normalize='index') * 100
 fig8 = px.bar(ct.reset_index().melt(id_vars='Starting Lie'), x='Starting Lie', y='value', color='Finishing Lie',
@@ -437,6 +444,7 @@ if st.button("Reset Zoom / Autoscale", key="reset8", use_container_width=True, t
 
 st.plotly_chart(fig8, use_container_width=True, key=f"chart8_{st.session_state.reset_trigger}")
 
+# 9. Career Shot Volume
 st.subheader("9. Career Shot Volume")
 cumulative = df.groupby('Date').size().cumsum().reset_index(name='Total Shots')
 fig9 = px.area(cumulative, x='Date', y='Total Shots', title="Total Shots Logged Over Time", template="plotly_dark")
@@ -449,6 +457,7 @@ st.plotly_chart(fig9, use_container_width=True, key=f"chart9_{st.session_state.r
 
 st.markdown("---")
 st.caption("Jolf 5.0 • Built with love by rossbrandenburg • December 2025")
+
 
 
 
