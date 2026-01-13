@@ -376,64 +376,68 @@ if fig3 is not None:
 else:
     st.info("No 100–150 yd shots found")
 
-# Panel 4 - Drive Distance by Hole (restored to your preferred style)
-st.subheader("4. Drive Distance by Hole — Per Round View")
-drives = df[df['Starting Lie'] == 'tee'].copy()
+# Panels 4 & 5 — side-by-side again
+col4, col5 = st.columns(2)
 
-if not drives.empty:
-    # Filter to only holes with at least one driver shot
-    hole_counts = drives['Hole'].value_counts()
-    holes_with_drives = hole_counts[hole_counts > 0].index.tolist()
-    drives = drives[drives['Hole'].isin(holes_with_drives)]
+with col4:
+    st.subheader("4. Drive Distance by Hole — Per Round View")
+    drives = df[df['Starting Lie'] == 'tee'].copy()
 
-    # Nice round label for coloring and legend
-    drives['Round'] = drives['Timestamp'].dt.strftime('%Y-%m-%d') + " — " + drives['Course'].fillna('Unknown Course')
+    if not drives.empty:
+        # Only include holes with at least one driver shot
+        hole_counts = drives['Hole'].value_counts()
+        holes_with_drives = hole_counts[hole_counts > 0].index.tolist()
+        drives = drives[drives['Hole'].isin(holes_with_drives)]
 
-    fig4 = px.box(
-        drives,
-        x='Hole',
-        y='Total Distance (yd)',
-        color='Round',
-        title="Drive Distance by Hole (Only Holes Where Driver Was Used)",
-        labels={'Total Distance (yd)': 'Total Distance (yards)'},
-        template="plotly_dark",
-        points="all",  # Show individual shots as dots
-        hover_data=['Course', 'Timestamp', 'Round']
-    )
+        # Nice round label for coloring and legend
+        drives['Round'] = drives['Timestamp'].dt.strftime('%Y-%m-%d') + " — " + drives['Course'].fillna('Unknown Course')
 
-    fig4.update_traces(marker=dict(size=10, opacity=0.8))  # Visible dots
-    fig4.update_xaxes(type='category', title="Hole Number")  # Proper hole order
-    fig4.update_layout(
-        showlegend=True,
-        legend_title="Round",
-        height=650,
-        boxmode='group'  # Side-by-side boxes per round
-    )
+        fig4 = px.box(
+            drives,
+            x='Hole',
+            y='Total Distance (yd)',
+            color='Round',
+            title="Drive Distance by Hole (Only Holes Where Driver Was Used)",
+            labels={'Total Distance (yd)': 'Total Distance (yards)'},
+            template="plotly_dark",
+            points="all",  # Show individual shots as dots
+            hover_data=['Course', 'Timestamp', 'Round']
+        )
 
-    if st.button("Reset Zoom / Autoscale", key="reset4", use_container_width=True, type="primary"):
-        st.session_state.reset_trigger += 1
-        st.rerun()
+        fig4.update_traces(marker=dict(size=10, opacity=0.8))  # Visible dots
+        fig4.update_xaxes(type='category', title="Hole Number")  # Proper hole order
+        fig4.update_layout(
+            showlegend=True,
+            legend_title="Round",
+            height=650,
+            boxmode='group'  # Side-by-side boxes per round
+        )
 
-    st.plotly_chart(fig4, use_container_width=True, key=f"chart4_{st.session_state.reset_trigger}")
-else:
-    st.info("No driver shots found in this data")
+        if st.button("Reset Zoom / Autoscale", key="reset4", use_container_width=True, type="primary"):
+            st.session_state.reset_trigger += 1
+            st.rerun()
 
-# Panel 5 - Driver Efficiency
-st.subheader("5. Driver Efficiency Zone")
-fig5 = None
-if not drives.empty:
-    fig5 = px.scatter(drives, x='VLA (deg)', y='Ballspeed (mph)', color='Total Distance (yd)', size='Carry (yd)',
-                      title="5. Driver Efficiency Zone", template="plotly_dark")
-    fig5.add_vrect(x0=11, x1=14, fillcolor="green", opacity=0.2)
-    fig5.add_hrect(y0=160, y1=175, fillcolor="green", opacity=0.2)
+        st.plotly_chart(fig4, use_container_width=True, key=f"chart4_{st.session_state.reset_trigger}")
+    else:
+        st.info("No driver shots found in this data")
 
-if fig5 is not None:
-    if st.button("Reset Zoom / Autoscale", key="reset5", use_container_width=True, type="primary"):
-        st.session_state.reset_trigger += 1
-        st.rerun()
-    st.plotly_chart(fig5, use_container_width=True, key=f"chart5_{st.session_state.reset_trigger}")
-else:
-    st.info("No driver shots found")
+with col5:
+    st.subheader("5. Driver Efficiency Zone")
+    fig5 = None
+    if not drives.empty:
+        fig5 = px.scatter(drives, x='VLA (deg)', y='Ballspeed (mph)', color='Total Distance (yd)', size='Carry (yd)',
+                          title="5. Driver Efficiency Zone", template="plotly_dark")
+        fig5.add_vrect(x0=11, x1=14, fillcolor="green", opacity=0.2)
+        fig5.add_hrect(y0=160, y1=175, fillcolor="green", opacity=0.2)
+
+    if fig5 is not None:
+        if st.button("Reset Zoom / Autoscale", key="reset5", use_container_width=True, type="primary"):
+            st.session_state.reset_trigger += 1
+            st.rerun()
+
+        st.plotly_chart(fig5, use_container_width=True, key=f"chart5_{st.session_state.reset_trigger}")
+    else:
+        st.info("No driver shots found")
 
 # Panel 6 - Putt Make %
 st.subheader("6. Putt Make % — With Sample Size & PGA Comparison")
@@ -504,6 +508,7 @@ st.plotly_chart(fig9, use_container_width=True, key=f"chart9_{st.session_state.r
 
 st.markdown("---")
 st.caption("Jolf 5.0 • Built with love by rossbrandenburg • December 2025")
+
 
 
 
