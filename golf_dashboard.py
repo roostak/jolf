@@ -342,39 +342,42 @@ if fig1 is not None:
 else:
     st.info("No approach shots found")
 
-# Panel 2 - Heatmap
-st.subheader("2. Proximity Heatmap (ft)")
-fig2 = None
-if not approaches.empty:
-    pivot = approaches.pivot_table(values='Finish Distance To Pin', index='Band', columns='Starting Lie', aggfunc='mean', observed=True) * 3.28084
-    fig2 = go.Figure(data=go.Heatmap(z=pivot.values, x=pivot.columns, y=pivot.index,
-                                     colorscale='Portland', text=pivot.values.round(1), texttemplate="%{text}ft"))
-    fig2.update_layout(title="2. Proximity Heatmap (ft)", template="plotly_dark", height=500)
+# Panels 2 & 3 — side-by-side again
+col2, col3 = st.columns(2)
 
-if fig2 is not None:
-    if st.button("Reset Zoom / Autoscale", key="reset2", use_container_width=True, type="primary"):
-        st.session_state.reset_trigger += 1
-        st.rerun()
-    st.plotly_chart(fig2, use_container_width=True, key=f"chart2_{st.session_state.reset_trigger}")
-else:
-    st.info("No approach shots found for heatmap")
+with col2:
+    st.subheader("2. Proximity Heatmap (ft)")
+    fig2 = None
+    if not approaches.empty:
+        pivot = approaches.pivot_table(values='Finish Distance To Pin', index='Band', columns='Starting Lie', aggfunc='mean', observed=True) * 3.28084
+        fig2 = go.Figure(data=go.Heatmap(z=pivot.values, x=pivot.columns, y=pivot.index,
+                                         colorscale='Portland', text=pivot.values.round(1), texttemplate="%{text}ft"))
+        fig2.update_layout(title="2. Proximity Heatmap (ft)", template="plotly_dark")
 
-# Panel 3 - Dispersion
-st.subheader("3. 100–150 yd Shot Pattern")
-fig3 = None
-mid = approaches[approaches['Carry (yd)'].between(100, 150)]
-if not mid.empty:
-    fig3 = px.scatter(mid, x='HLA (deg)', y='Finish Distance To Pin', color='Spin Axis (deg)', size='Ballspeed (mph)',
-                      title="3. 100–150 yd Shot Pattern", template="plotly_dark")
-    fig3.add_vline(x=0, line_dash="dash")
+    if fig2 is not None:
+        if st.button("Reset Zoom / Autoscale", key="reset2", use_container_width=True, type="primary"):
+            st.session_state.reset_trigger += 1
+            st.rerun()
+        st.plotly_chart(fig2, use_container_width=True, key=f"chart2_{st.session_state.reset_trigger}")
+    else:
+        st.info("No approach shots found for heatmap")
 
-if fig3 is not None:
-    if st.button("Reset Zoom / Autoscale", key="reset3", use_container_width=True, type="primary"):
-        st.session_state.reset_trigger += 1
-        st.rerun()
-    st.plotly_chart(fig3, use_container_width=True, key=f"chart3_{st.session_state.reset_trigger}")
-else:
-    st.info("No 100–150 yd shots found")
+with col3:
+    st.subheader("3. 100–150 yd Shot Pattern")
+    fig3 = None
+    mid = approaches[approaches['Carry (yd)'].between(100, 150)]
+    if not mid.empty:
+        fig3 = px.scatter(mid, x='HLA (deg)', y='Finish Distance To Pin', color='Spin Axis (deg)', size='Ballspeed (mph)',
+                          title="3. 100–150 yd Shot Pattern", template="plotly_dark")
+        fig3.add_vline(x=0, line_dash="dash")
+
+    if fig3 is not None:
+        if st.button("Reset Zoom / Autoscale", key="reset3", use_container_width=True, type="primary"):
+            st.session_state.reset_trigger += 1
+            st.rerun()
+        st.plotly_chart(fig3, use_container_width=True, key=f"chart3_{st.session_state.reset_trigger}")
+    else:
+        st.info("No 100–150 yd shots found")
 
 # Panels 4 & 5 — side-by-side again
 col4, col5 = st.columns(2)
@@ -508,6 +511,7 @@ st.plotly_chart(fig9, use_container_width=True, key=f"chart9_{st.session_state.r
 
 st.markdown("---")
 st.caption("Jolf 5.0 • Built with love by rossbrandenburg • December 2025")
+
 
 
 
