@@ -376,21 +376,47 @@ if fig3 is not None:
 else:
     st.info("No 100–150 yd shots found")
 
-# Panel 4 - Drive Distance by Hole
-st.subheader("4. Drive Distance by Hole")
-drives = df[df['Starting Lie'] == 'tee']
-fig4 = None
-if not drives.empty:
-    fig4 = px.box(drives, x='Hole', y='Total Distance (yd)', color='Course', title="4. Drive Distance by Hole")
-    fig4.update_xaxes(type='category')
+# Panel 4 - Drive Distance by Hole (restored to your preferred style)
+st.subheader("4. Drive Distance by Hole — Per Round View")
+drives = df[df['Starting Lie'] == 'tee'].copy()
 
-if fig4 is not None:
+if not drives.empty:
+    # Filter to only holes with at least one driver shot
+    hole_counts = drives['Hole'].value_counts()
+    holes_with_drives = hole_counts[hole_counts > 0].index.tolist()
+    drives = drives[drives['Hole'].isin(holes_with_drives)]
+
+    # Nice round label for coloring and legend
+    drives['Round'] = drives['Timestamp'].dt.strftime('%Y-%m-%d') + " — " + drives['Course'].fillna('Unknown Course')
+
+    fig4 = px.box(
+        drives,
+        x='Hole',
+        y='Total Distance (yd)',
+        color='Round',
+        title="Drive Distance by Hole (Only Holes Where Driver Was Used)",
+        labels={'Total Distance (yd)': 'Total Distance (yards)'},
+        template="plotly_dark",
+        points="all",  # Show individual shots as dots
+        hover_data=['Course', 'Timestamp', 'Round']
+    )
+
+    fig4.update_traces(marker=dict(size=10, opacity=0.8))  # Visible dots
+    fig4.update_xaxes(type='category', title="Hole Number")  # Proper hole order
+    fig4.update_layout(
+        showlegend=True,
+        legend_title="Round",
+        height=650,
+        boxmode='group'  # Side-by-side boxes per round
+    )
+
     if st.button("Reset Zoom / Autoscale", key="reset4", use_container_width=True, type="primary"):
         st.session_state.reset_trigger += 1
         st.rerun()
+
     st.plotly_chart(fig4, use_container_width=True, key=f"chart4_{st.session_state.reset_trigger}")
 else:
-    st.info("No driver shots found")
+    st.info("No driver shots found in this data")
 
 # Panel 5 - Driver Efficiency
 st.subheader("5. Driver Efficiency Zone")
@@ -478,6 +504,7 @@ st.plotly_chart(fig9, use_container_width=True, key=f"chart9_{st.session_state.r
 
 st.markdown("---")
 st.caption("Jolf 5.0 • Built with love by rossbrandenburg • December 2025")
+
 
 
 
