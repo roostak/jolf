@@ -311,7 +311,7 @@ with col5:
 st.markdown("---")
 
 # ===========================================================================
-# PANEL 1
+# PANEL 1 - Approach Proximity
 # ===========================================================================
 st.subheader("1. Approach Proximity by Distance (ft) — PGA Tour Overlay")
 approaches = df[
@@ -340,12 +340,12 @@ if st.button("Reset Zoom / Autoscale", key="reset1", use_container_width=True, t
 st.plotly_chart(fig1, use_container_width=True, key=f"chart1_{st.session_state.reset_trigger}")
 
 # ===========================================================================
-# Two-column layout
+# Two-column panels
 # ===========================================================================
 col1, col2 = st.columns(2)
 
 with col1:
-    # 2. Heatmap
+    # 2. Proximity Heatmap
     if not approaches.empty:
         pivot = approaches.pivot_table(values='Finish Distance To Pin', index='Band', columns='Starting Lie', aggfunc='mean', observed=True) * 3.28084
         fig2 = go.Figure(data=go.Heatmap(z=pivot.values, x=pivot.columns, y=pivot.index,
