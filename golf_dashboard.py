@@ -1,3 +1,4 @@
+# golf_dashboard.py — JOLF 5.0 FINAL + RESET ZOOM + FIXED EXAMPLE LOAD (January 2026)
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -5,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from io import StringIO
 
-# Session state for resetting zoom across all charts
+# Session state for resetting zoom across charts
 if 'reset_trigger' not in st.session_state:
     st.session_state.reset_trigger = 0
 
@@ -13,9 +14,9 @@ st.set_page_config(page_title="Jolf 5.0", layout="wide")
 st.title("Jolf 5.0 — SGT Dashboard")
 st.caption("Private • Free • Instant")
 
-# ──────────────────────────────────────── Load Example Data Button ────────────────────────────────────────
+# ──────────────────────────────────────── Load Example Data Button (fixed) ────────────────────────────────────────
 if st.button("Load Example Data → See Everything Instantly", type="primary", use_container_width=True):
-    # Replace this with your actual full example CSV string
+    # Paste your full example CSV content here (no EXAMPLE DATA block)
     example_csv = """Timestamp,Tournament,Course,Hole,Club,Gimme,Starting Lie,Finishing Lie,Finish Distance To Pin,Ballspeed (mph),Spin,Spin Axis (deg),VLA (deg),HLA (deg),Carry (m),Roll (m),Total Distance (m),Max Height (m),Carry (yd),Roll (yd),Total Distance (yd),Max Height (ft)
 2025-12-02 20:31:47,December 2nd @ The Wilderness at Fortune Bay,The Wilderness at Fortune Bay,18,DRV,0,green,holeCup,0.07599926,6.91214418411,0.0,45.0,0.0,-1.79799997807,0.0,4.55906057358,4.55906057358,26.79467773438,0.0,4.9858342338728,4.9858342338728,87.909050498063
 2025-12-02 20:31:47,December 2nd @ The Wilderness at Fortune Bay,The Wilderness at Fortune Bay,18,DRV,0,green,holeCup,0.07599926,6.91214418411,0.0,45.0,0.0,-1.79799997807,0.0,4.55906057358,4.55906057358,26.79467773438,0.0,4.9858342338728,4.9858342338728,87.909050498063
@@ -225,7 +226,7 @@ if st.button("Load Example Data → See Everything Instantly", type="primary", u
     try:
         df_example = pd.read_csv(StringIO(example_csv.strip()), encoding='utf-8-sig')
         if df_example.empty:
-            st.error("Example data string appears empty after parsing.")
+            st.error("Example data appears empty after parsing.")
         else:
             st.session_state.df = df_example
             st.success(f"Example data loaded — {len(df_example):,} shots ready!")
@@ -235,7 +236,7 @@ if st.button("Load Example Data → See Everything Instantly", type="primary", u
         st.error(f"Failed to load example data: {str(e)}")
         st.stop()
 
-# ──────────────────────────────────────── Regular CSV Upload ────────────────────────────────────────
+# ──────────────────────────────────────── Real CSV Upload (more robust) ────────────────────────────────────────
 st.info("""
 **Quick note:** SGT no longer allows public data access.  
 **How to get your CSV (10 seconds):**
@@ -258,13 +259,12 @@ if uploaded_file is not None:
             st.balloons()
             st.success(f"Loaded {len(df):,} shots • Latest: {pd.to_datetime(df['Timestamp']).max().strftime('%b %d, %Y')}")
         except pd.errors.EmptyDataError:
-            st.error("EmptyDataError: No columns found in the CSV file. File might be empty or corrupted.")
+            st.error("EmptyDataError: No columns found. File might be empty or corrupted.")
             st.stop()
         except Exception as e:
-            st.error(f"Error reading CSV: {str(e)}\n\nTry re-downloading the file from SGT.")
+            st.error(f"Error reading CSV: {str(e)}\nTry re-downloading from SGT.")
             st.stop()
 
-# Stop if no data loaded
 if "df" not in st.session_state:
     st.stop()
 
@@ -315,44 +315,169 @@ with col5: st.markdown(f"<h3 style='text-align:center;'>Total SG<br><span style=
 
 st.markdown("---")
 
-# ──────────────────────────────────────── CHARTS WITH RESET BUTTONS ────────────────────────────────────────
+# ──────────────────────────────────────── ALL CHARTS WITH RESET BUTTONS ────────────────────────────────────────
 
+# Panel 1 - Approach Proximity
 st.subheader("1. Approach Proximity by Distance (ft) — PGA Tour Overlay")
 approaches = df[df['Starting Lie'].isin(['fairway', 'rough', 'deeprough', 'sand']) & (df['Carry (yd)'] > 50)].copy()
 
+fig1 = None
 if not approaches.empty:
     approaches['Band'] = pd.cut(approaches['Carry (yd)'], bins=[50,75,100,125,150,175,200,225,250,1000],
                                 labels=['50-75','75-100','100-125','125-150','150-175','175-200','200-225','225-250','250+'])
     prox = approaches.groupby('Band', observed=True)['Finish Distance To Pin'].agg(['mean','count']).reset_index()
     prox['mean_ft'] = prox['mean'] * 3.28084
     prox['Label'] = prox['mean_ft'].round(1).astype(str) + "ft (" + prox['count'].astype(str) + ")"
-
-    pga_ft = [15, 22, 30, 39, 50, 62, 75, 90, 110]
+    pga_ft = [15,22,30,39,50,62,75,90,110]
     fig1 = go.Figure()
     fig1.add_trace(go.Bar(x=prox['Band'], y=prox['mean_ft'], name="You", text=prox['Label'], marker_color="#00ff88"))
     fig1.add_trace(go.Scatter(x=prox['Band'], y=pga_ft, mode="lines+markers", name="PGA Tour Avg", line=dict(color="red", dash="dash", width=3)))
-    fig1.update_layout(title="Your Proximity vs PGA Tour", yaxis_title="Feet to Pin", template="plotly_dark")
+    fig1.update_layout(title="Your Proximity vs PGA Tour", yaxis_title="Feet to Pin", template="plotly_dark", height=500)
 
-if st.button("Reset Zoom / Autoscale", key="reset1", use_container_width=True, type="primary"):
+if fig1 is not None:
+    if st.button("Reset Zoom / Autoscale", key="reset1", use_container_width=True, type="primary"):
+        st.session_state.reset_trigger += 1
+        st.rerun()
+    st.plotly_chart(fig1, use_container_width=True, key=f"chart1_{st.session_state.reset_trigger}")
+else:
+    st.info("No approach shots found")
+
+# Panel 2 - Heatmap
+st.subheader("2. Proximity Heatmap (ft)")
+fig2 = None
+if not approaches.empty:
+    pivot = approaches.pivot_table(values='Finish Distance To Pin', index='Band', columns='Starting Lie', aggfunc='mean', observed=True) * 3.28084
+    fig2 = go.Figure(data=go.Heatmap(z=pivot.values, x=pivot.columns, y=pivot.index,
+                                     colorscale='Portland', text=pivot.values.round(1), texttemplate="%{text}ft"))
+    fig2.update_layout(title="2. Proximity Heatmap (ft)", template="plotly_dark", height=500)
+
+if fig2 is not None:
+    if st.button("Reset Zoom / Autoscale", key="reset2", use_container_width=True, type="primary"):
+        st.session_state.reset_trigger += 1
+        st.rerun()
+    st.plotly_chart(fig2, use_container_width=True, key=f"chart2_{st.session_state.reset_trigger}")
+else:
+    st.info("No approach shots found for heatmap")
+
+# Panel 3 - Dispersion
+st.subheader("3. 100–150 yd Shot Pattern")
+fig3 = None
+mid = approaches[approaches['Carry (yd)'].between(100, 150)]
+if not mid.empty:
+    fig3 = px.scatter(mid, x='HLA (deg)', y='Finish Distance To Pin', color='Spin Axis (deg)', size='Ballspeed (mph)',
+                      title="3. 100–150 yd Shot Pattern", template="plotly_dark")
+    fig3.add_vline(x=0, line_dash="dash")
+
+if fig3 is not None:
+    if st.button("Reset Zoom / Autoscale", key="reset3", use_container_width=True, type="primary"):
+        st.session_state.reset_trigger += 1
+        st.rerun()
+    st.plotly_chart(fig3, use_container_width=True, key=f"chart3_{st.session_state.reset_trigger}")
+else:
+    st.info("No 100–150 yd shots found")
+
+# Panel 4 - Drive Distance by Hole
+st.subheader("4. Drive Distance by Hole")
+drives = df[df['Starting Lie'] == 'tee']
+fig4 = None
+if not drives.empty:
+    fig4 = px.box(drives, x='Hole', y='Total Distance (yd)', color='Course', title="4. Drive Distance by Hole")
+    fig4.update_xaxes(type='category')
+
+if fig4 is not None:
+    if st.button("Reset Zoom / Autoscale", key="reset4", use_container_width=True, type="primary"):
+        st.session_state.reset_trigger += 1
+        st.rerun()
+    st.plotly_chart(fig4, use_container_width=True, key=f"chart4_{st.session_state.reset_trigger}")
+else:
+    st.info("No driver shots found")
+
+# Panel 5 - Driver Efficiency
+st.subheader("5. Driver Efficiency Zone")
+fig5 = None
+if not drives.empty:
+    fig5 = px.scatter(drives, x='VLA (deg)', y='Ballspeed (mph)', color='Total Distance (yd)', size='Carry (yd)',
+                      title="5. Driver Efficiency Zone", template="plotly_dark")
+    fig5.add_vrect(x0=11, x1=14, fillcolor="green", opacity=0.2)
+    fig5.add_hrect(y0=160, y1=175, fillcolor="green", opacity=0.2)
+
+if fig5 is not None:
+    if st.button("Reset Zoom / Autoscale", key="reset5", use_container_width=True, type="primary"):
+        st.session_state.reset_trigger += 1
+        st.rerun()
+    st.plotly_chart(fig5, use_container_width=True, key=f"chart5_{st.session_state.reset_trigger}")
+else:
+    st.info("No driver shots found")
+
+# Panel 6 - Putt Make %
+st.subheader("6. Putt Make % — With Sample Size & PGA Comparison")
+putts = df[(df['Starting Lie']=='green') & (df['Gimme']==0)]
+fig6 = None
+if not putts.empty:
+    putts['Band'] = pd.cut(putts['Total Distance (yd)'], bins=[0,3,6,10,15,20,30,50],
+                           labels=['0-3','3-6','6-10','10-15','15-20','20-30','30-50'])
+    stats = putts.groupby('Band', observed=True).agg(
+        made=('Finish Distance To Pin', lambda x: (x == 0).sum()),
+        total=('Finish Distance To Pin', 'count')
+    ).reset_index()
+    stats['% Made'] = (stats['made'] / stats['total']) * 100
+    stats['Label'] = stats['% Made'].round(1).astype(str) + "% (" + stats['made'].astype(str) + "/" + stats['total'].astype(str) + ")"
+
+    pga = [98, 85, 60, 36, 22, 12, 5]
+    fig6 = go.Figure()
+    fig6.add_trace(go.Bar(x=stats['Band'], y=stats['% Made'], name="You", text=stats['Label'], marker_color="#00FF88"))
+    fig6.add_trace(go.Scatter(x=stats['Band'], y=pga, mode="lines+markers", name="PGA Tour Avg", line=dict(color="gold", dash="dash", width=3)))
+    fig6.update_layout(title="Putt Make % by Distance", yaxis_title="% Made", template="plotly_dark")
+
+if fig6 is not None:
+    if st.button("Reset Zoom / Autoscale", key="reset6", use_container_width=True, type="primary"):
+        st.session_state.reset_trigger += 1
+        st.rerun()
+    st.plotly_chart(fig6, use_container_width=True, key=f"chart6_{st.session_state.reset_trigger}")
+else:
+    st.info("No putts found (or all were gimmes)")
+
+# Panel 7 - Drive Dispersion
+st.subheader("7. Drive Dispersion – Last 50")
+fig7 = None
+if not drives.empty:
+    recent = drives.tail(50)
+    fig7 = px.scatter_polar(recent, r='Carry (yd)', theta='HLA (deg)', color='Spin Axis (deg)', size='Ballspeed (mph)',
+                            title="Drive Dispersion Pattern", template="plotly_dark")
+
+if fig7 is not None:
+    if st.button("Reset Zoom / Autoscale", key="reset7", use_container_width=True, type="primary"):
+        st.session_state.reset_trigger += 1
+        st.rerun()
+    st.plotly_chart(fig7, use_container_width=True, key=f"chart7_{st.session_state.reset_trigger}")
+else:
+    st.info("No driver shots found")
+
+# Panel 8 - Finishing Lie
+st.subheader("8. Where Shots End Up")
+ct = pd.crosstab(df['Starting Lie'], df['Finishing Lie'], normalize='index') * 100
+fig8 = px.bar(ct.reset_index().melt(id_vars='Starting Lie'), x='Starting Lie', y='value', color='Finishing Lie',
+              title="Finishing Lie % by Starting Lie", template="plotly_dark")
+
+if st.button("Reset Zoom / Autoscale", key="reset8", use_container_width=True, type="primary"):
     st.session_state.reset_trigger += 1
     st.rerun()
 
-st.plotly_chart(fig1, use_container_width=True, key=f"chart1_{st.session_state.reset_trigger}")
+st.plotly_chart(fig8, use_container_width=True, key=f"chart8_{st.session_state.reset_trigger}")
 
-# Continue with your other panels here...
-# (add the same button + key pattern before every st.plotly_chart call)
+# Panel 9 - Career Volume
+st.subheader("9. Career Shot Volume")
+cumulative = df.groupby('Date').size().cumsum().reset_index(name='Total Shots')
+fig9 = px.area(cumulative, x='Date', y='Total Shots', title="Total Shots Logged Over Time", template="plotly_dark")
 
-# Example for the next few panels:
-st.subheader("2. Proximity Heatmap")
-# ... your heatmap code ...
-if st.button("Reset Zoom / Autoscale", key="reset2", use_container_width=True, type="primary"):
+if st.button("Reset Zoom / Autoscale", key="reset9", use_container_width=True, type="primary"):
     st.session_state.reset_trigger += 1
     st.rerun()
-st.plotly_chart(fig2, use_container_width=True, key=f"chart2_{st.session_state.reset_trigger}")
 
-# ... repeat for every chart ...
+st.plotly_chart(fig9, use_container_width=True, key=f"chart9_{st.session_state.reset_trigger}")
 
 st.markdown("---")
-st.caption("Jolf 5.0 • Built with love by rossbrandenburg • January 2026")
+st.caption("Jolf 5.0 • Built with love by rossbrandenburg • December 2025")
+
 
 
