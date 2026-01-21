@@ -14,7 +14,13 @@ st.set_page_config(page_title="Jolf 5.0", layout="wide")
 st.title("Jolf 5.0 — SGT Dashboard")
 st.caption("Private • Free • Instant")
 
-# ──────────────────────────────────────── Load Example Data Button (fixed) ────────────────────────────────────────
+# ──────────────────────────────────────── Data Loading ────────────────────────────────────────
+
+# Track where the current data came from
+if 'data_source' not in st.session_state:
+    st.session_state.data_source = None  # None / 'example' / 'uploaded'
+
+# Example data button
 if st.button("Load Example Data → See Everything Instantly", type="primary", use_container_width=True):
     # Paste your full example CSV content here (no EXAMPLE DATA block)
     example_csv = """Timestamp,Tournament,Course,Hole,Club,Gimme,Starting Lie,Finishing Lie,Finish Distance To Pin,Ballspeed (mph),Spin,Spin Axis (deg),VLA (deg),HLA (deg),Carry (m),Roll (m),Total Distance (m),Max Height (m),Carry (yd),Roll (yd),Total Distance (yd),Max Height (ft)
@@ -225,18 +231,16 @@ if st.button("Load Example Data → See Everything Instantly", type="primary", u
 
     try:
         df_example = pd.read_csv(StringIO(example_csv.strip()), encoding='utf-8-sig')
-        if df_example.empty:
-            st.error("Example data appears empty after parsing.")
-        else:
-            st.session_state.df = df_example
-            st.success(f"Example data loaded — {len(df_example):,} shots ready!")
-            st.balloons()
-            st.rerun()
+        st.session_state.df = df_example
+        st.session_state.data_source = 'example'
+        st.success(f"Example data loaded — {len(df_example):,} shots ready!")
+        st.balloons()
+        st.rerun()
     except Exception as e:
-        st.error(f"Failed to load example data: {str(e)}")
+        st.error(f"Failed to load example: {e}")
         st.stop()
 
-# ──────────────────────────────────────── Real CSV Upload (more robust) ────────────────────────────────────────
+# File uploader + instructions
 st.info("""
 **Quick note:** SGT no longer allows public data access.  
 **How to get your CSV (10 seconds):**
@@ -250,28 +254,34 @@ uploaded_file = st.file_uploader("Drop your SGT shot-data.csv here", type="csv")
 if uploaded_file is not None:
     with st.spinner("Loading your shots..."):
         try:
-            uploaded_file.seek(0)  # Reset pointer — critical on Render
-            df = pd.read_csv(uploaded_file, encoding='utf-8-sig', on_bad_lines='skip', low_memory=False)
-            if df.empty or len(df.columns) == 0:
-                st.error("CSV loaded but has no columns or rows. Re-download from SGT and try again.")
-                st.stop()
-            st.session_state.df = df
-            st.balloons()
-            st.success(f"Loaded {len(df):,} shots • Latest: {pd.to_datetime(df['Timestamp']).max().strftime('%b %d, %Y')}")
-        except pd.errors.EmptyDataError:
-            st.error("EmptyDataError: No columns found. File might be empty or corrupted.")
-            st.stop()
+            uploaded_file.seek(0)
+            df_uploaded = pd.read_csv(uploaded_file, encoding='utf-8-sig', on_bad_lines='skip', low_memory=False)
+            
+            if df_uploaded.empty or len(df_uploaded.columns) == 0:
+                st.error("Uploaded file is empty or has no valid columns.")
+            else:
+                # Overwrite completely
+                st.session_state.df = df_uploaded
+                st.session_state.data_source = 'uploaded'
+                st.success(f"Loaded {len(df_uploaded):,} shots • Latest: {pd.to_datetime(df_uploaded['Timestamp']).max().strftime('%b %d, %Y') if 'Timestamp' in df_uploaded else 'N/A'}")
+                st.balloons()
+                st.rerun()
         except Exception as e:
-            st.error(f"Error reading CSV: {str(e)}\nTry re-downloading from SGT.")
+            st.error(f"Error reading CSV: {e}\nTry re-downloading from your SGT profile.")
             st.stop()
 
-if "df" not in st.session_state:
+# If no data loaded yet → early exit
+if "df" not in st.session_state or st.session_state.df is None:
+    st.info("Load the example data or upload your own SGT CSV to get started.")
     st.stop()
 
-df = st.session_state.df
+# Use the loaded data
+df = st.session_state.df.copy()  # .copy() prevents accidental mutation issues later
 df['Timestamp'] = pd.to_datetime(df['Timestamp'], errors='coerce')
 df['Date'] = df['Timestamp'].dt.date
 
+# Optional: small debug line you can remove later
+st.caption(f"Current data: {st.session_state.data_source or 'unknown'} • {len(df)} rows")
 # ──────────────────────────────────────── STROKES GAINED SUMMARY ────────────────────────────────────────
 st.markdown("---")
 st.markdown("<h2 style='text-align: center;'>Strokes Gained Summary</h2>", unsafe_allow_html=True)
@@ -511,6 +521,7 @@ st.plotly_chart(fig9, use_container_width=True, key=f"chart9_{st.session_state.r
 
 st.markdown("---")
 st.caption("Jolf 5.0 • Built with love by rossbrandenburg • December 2025")
+
 
 
 
