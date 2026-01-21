@@ -16,12 +16,8 @@ st.caption("Private • Free • Instant")
 
 # ──────────────────────────────────────── Data Loading ────────────────────────────────────────
 
-# Track where the current data came from
-if 'data_source' not in st.session_state:
-    st.session_state.data_source = None  # None / 'example' / 'uploaded'
-
-# Example data button
-if st.button("Load Example Data → See Everything Instantly", type="primary", use_container_width=True):
+if "df" not in st.session_state or st.session_state.get("using_example", False):
+    if st.button("Load Example Data → See Everything Instantly", type="primary", use_container_width=True):
     # Paste your full example CSV content here (no EXAMPLE DATA block)
     example_csv = """Timestamp,Tournament,Course,Hole,Club,Gimme,Starting Lie,Finishing Lie,Finish Distance To Pin,Ballspeed (mph),Spin,Spin Axis (deg),VLA (deg),HLA (deg),Carry (m),Roll (m),Total Distance (m),Max Height (m),Carry (yd),Roll (yd),Total Distance (yd),Max Height (ft)
 2025-12-02 20:31:47,December 2nd @ The Wilderness at Fortune Bay,The Wilderness at Fortune Bay,18,DRV,0,green,holeCup,0.07599926,6.91214418411,0.0,45.0,0.0,-1.79799997807,0.0,4.55906057358,4.55906057358,26.79467773438,0.0,4.9858342338728,4.9858342338728,87.909050498063
@@ -229,25 +225,26 @@ if st.button("Load Example Data → See Everything Instantly", type="primary", u
 2026-01-06 18:40:52,January 6th @ Giant's Ridge (The Legend),The Legend at Giants Ridge,1,DRV,0,tee,fairway,53.25955000000,154.37347412109,1320.34570312500,2.55522227287,13.95499992371,1.92499995232,238.03346252441,29.33323669434,267.36669921875,24.20344161987,260.31577495132,32.079120981297,292.39489593262,79.407619404134
 """
 
-    try:
-        df_example = pd.read_csv(StringIO(example_csv.strip()), encoding='utf-8-sig')
-        st.session_state.df = df_example
-        st.session_state.data_source = 'example'
-        st.success(f"Example data loaded — {len(df_example):,} shots ready!")
-        st.balloons()
-        st.rerun()
-    except Exception as e:
-        st.error(f"Failed to load example: {e}")
-        st.stop()
+try:
+            df_example = pd.read_csv(StringIO(example_csv.strip()), encoding='utf-8-sig')
+            if df_example.empty:
+                st.error("Example data appears empty after parsing.")
+            else:
+                st.session_state.df = df_example
+                st.session_state.using_example = True
+                st.success(f"Example data loaded — {len(df_example):,} shots ready!")
+                st.balloons()
+                st.rerun()
+        except Exception as e:
+            st.error(f"Failed to load example data: {str(e)}")
 
-# File uploader + instructions
-st.info("""
-**Quick note:** SGT no longer allows public data access.  
+# ──────────────────────────────────────── Real CSV Upload (always overrides example data) ────────────────────────────────────────
+st.info("""**Quick note:** SGT no longer allows public data access.  
 **How to get your CSV (10 seconds):**
-1. Log in → Click your username → Profile
-2. Click **"Download Shot Data"**
-3. Drag the file below → get stats
-""")
+
+1. Log in → Click your username → Profile  
+2. Click **"Download Shot Data"**  
+3. Drag the file below → get stats""")
 
 uploaded_file = st.file_uploader("Drop your SGT shot-data.csv here", type="csv")
 
@@ -255,28 +252,31 @@ if uploaded_file is not None:
     with st.spinner("Loading your shots..."):
         try:
             uploaded_file.seek(0)
-            df_uploaded = pd.read_csv(uploaded_file, encoding='utf-8-sig', on_bad_lines='skip', low_memory=False)
+            df_user = pd.read_csv(uploaded_file, encoding='utf-8-sig', on_bad_lines='skip', low_memory=False)
             
-            if df_uploaded.empty or len(df_uploaded.columns) == 0:
-                st.error("Uploaded file is empty or has no valid columns.")
+            if df_user.empty or len(df_user.columns) == 0:
+                st.error("CSV loaded but has no columns or rows. Re-download from SGT and try again.")
             else:
-                # Overwrite completely
-                st.session_state.df = df_uploaded
-                st.session_state.data_source = 'uploaded'
-                st.success(f"Loaded {len(df_uploaded):,} shots • Latest: {pd.to_datetime(df_uploaded['Timestamp']).max().strftime('%b %d, %Y') if 'Timestamp' in df_uploaded else 'N/A'}")
+                # Force replace + clear example mode
+                st.session_state.df = df_user
+                st.session_state.using_example = False
+                
                 st.balloons()
-                st.rerun()
+                latest = pd.to_datetime(df_user['Timestamp']).max().strftime('%b %d, %Y') if 'Timestamp' in df_user else "unknown"
+                st.success(f"Loaded {len(df_user):,} shots • Latest: {latest}")
+                st.rerun()  # Ensures clean refresh
+                
+        except pd.errors.EmptyDataError:
+            st.error("EmptyDataError: No columns found. File might be empty or corrupted.")
         except Exception as e:
-            st.error(f"Error reading CSV: {e}\nTry re-downloading from your SGT profile.")
-            st.stop()
+            st.error(f"Error reading CSV: {str(e)}\nTry re-downloading from SGT.")
 
 # If no data loaded yet → early exit
-if "df" not in st.session_state or st.session_state.df is None:
-    st.info("Load the example data or upload your own SGT CSV to get started.")
+if "df" not in st.session_state:
+    st.info("Upload your SGT shot data CSV or click the example button above to get started.")
     st.stop()
 
-# Use the loaded data
-df = st.session_state.df.copy()  # .copy() prevents accidental mutation issues later
+df = st.session_state.df
 df['Timestamp'] = pd.to_datetime(df['Timestamp'], errors='coerce')
 df['Date'] = df['Timestamp'].dt.date
 
@@ -521,6 +521,7 @@ st.plotly_chart(fig9, use_container_width=True, key=f"chart9_{st.session_state.r
 
 st.markdown("---")
 st.caption("Jolf 5.0 • Built with love by rossbrandenburg • December 2025")
+
 
 
 
