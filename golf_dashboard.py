@@ -16,10 +16,18 @@ st.caption("Private • Free • Instant")
 
 # ──────────────────────────────────────── Data Loading ────────────────────────────────────────
 
-if "df" not in st.session_state or st.session_state.get("using_example", False):
+# Initialize flags if missing
+if "shot_data" not in st.session_state:
+    st.session_state.shot_data = None
+if "using_example" not in st.session_state:
+    st.session_state.using_example = False
+if "real_data_loaded" not in st.session_state:
+    st.session_state.real_data_loaded = False
+
+# Example button — only visible if no real data ever loaded in this session
+if not st.session_state.real_data_loaded:
     if st.button("Load Example Data → See Everything Instantly", type="primary", use_container_width=True):
-    # Paste your full example CSV content here (no EXAMPLE DATA block)
-    example_csv = """Timestamp,Tournament,Course,Hole,Club,Gimme,Starting Lie,Finishing Lie,Finish Distance To Pin,Ballspeed (mph),Spin,Spin Axis (deg),VLA (deg),HLA (deg),Carry (m),Roll (m),Total Distance (m),Max Height (m),Carry (yd),Roll (yd),Total Distance (yd),Max Height (ft)
+        example_csv = """Timestamp,Tournament,Course,Hole,Club,Gimme,Starting Lie,Finishing Lie,Finish Distance To Pin,Ballspeed (mph),Spin,Spin Axis (deg),VLA (deg),HLA (deg),Carry (m),Roll (m),Total Distance (m),Max Height (m),Carry (yd),Roll (yd),Total Distance (yd),Max Height (ft)
 2025-12-02 20:31:47,December 2nd @ The Wilderness at Fortune Bay,The Wilderness at Fortune Bay,18,DRV,0,green,holeCup,0.07599926,6.91214418411,0.0,45.0,0.0,-1.79799997807,0.0,4.55906057358,4.55906057358,26.79467773438,0.0,4.9858342338728,4.9858342338728,87.909050498063
 2025-12-02 20:31:47,December 2nd @ The Wilderness at Fortune Bay,The Wilderness at Fortune Bay,18,DRV,0,green,holeCup,0.07599926,6.91214418411,0.0,45.0,0.0,-1.79799997807,0.0,4.55906057358,4.55906057358,26.79467773438,0.0,4.9858342338728,4.9858342338728,87.909050498063
 2025-12-02 20:28:59,December 2nd @ The Wilderness at Fortune Bay,The Wilderness at Fortune Bay,18,DRV,0,fairway,deeprough,12.78083,111.90515899658,7131.6962890625,-9.56782436371,18.57299995422,-0.07900000364,145.14562988281,-0.00074768066,145.14488220215,29.7038974762,158.73271229614,-0.0008176710465826,158.73189462509,97.453734995816
@@ -224,21 +232,24 @@ if "df" not in st.session_state or st.session_state.get("using_example", False):
 2026-01-06 18:42:11,January 6th @ Giant's Ridge (The Legend),The Legend at Giants Ridge,1,DRV,0,fairway,green,7.21345200000,48.38277435303,2530.17016601563,5.31441211700,38.34199905396,-0.09099999815,40.26085662842,5.03632354736,45.29718017578,10.74634552002,44.029675417406,5.5077737946284,49.537449212035,35.257040235902
 2026-01-06 18:40:52,January 6th @ Giant's Ridge (The Legend),The Legend at Giants Ridge,1,DRV,0,tee,fairway,53.25955000000,154.37347412109,1320.34570312500,2.55522227287,13.95499992371,1.92499995232,238.03346252441,29.33323669434,267.36669921875,24.20344161987,260.31577495132,32.079120981297,292.39489593262,79.407619404134
 """
-
-try:
+        try:
             df_example = pd.read_csv(StringIO(example_csv.strip()), encoding='utf-8-sig')
             if df_example.empty:
                 st.error("Example data appears empty after parsing.")
             else:
-                st.session_state.df = df_example
+                # Clean overwrite
+                if "shot_data" in st.session_state:
+                    del st.session_state.shot_data
+                st.session_state.shot_data = df_example.copy()
                 st.session_state.using_example = True
+                st.session_state.real_data_loaded = False
                 st.success(f"Example data loaded — {len(df_example):,} shots ready!")
                 st.balloons()
                 st.rerun()
         except Exception as e:
             st.error(f"Failed to load example data: {str(e)}")
 
-# ──────────────────────────────────────── Real CSV Upload (always overrides example data) ────────────────────────────────────────
+# ──────────────────────────────────────── Real CSV Upload ────────────────────────────────────────
 st.info("""**Quick note:** SGT no longer allows public data access.  
 **How to get your CSV (10 seconds):**
 
@@ -246,42 +257,58 @@ st.info("""**Quick note:** SGT no longer allows public data access.
 2. Click **"Download Shot Data"**  
 3. Drag the file below → get stats""")
 
-uploaded_file = st.file_uploader("Drop your SGT shot-data.csv here", type="csv")
+uploaded_file = st.file_uploader("Drop your SGT shot-data.csv here", type="csv", key="uploader_key")
 
 if uploaded_file is not None:
-    with st.spinner("Loading your shots..."):
+    with st.spinner("Processing your uploaded file..."):
         try:
             uploaded_file.seek(0)
             df_user = pd.read_csv(uploaded_file, encoding='utf-8-sig', on_bad_lines='skip', low_memory=False)
             
             if df_user.empty or len(df_user.columns) == 0:
-                st.error("CSV loaded but has no columns or rows. Re-download from SGT and try again.")
+                st.error("The CSV has no data or columns. Please re-download from SGT.")
             else:
-                # Force replace + clear example mode
-                st.session_state.df = df_user
+                # Aggressive clean + replace
+                if "shot_data" in st.session_state:
+                    del st.session_state.shot_data
+                
+                st.session_state.shot_data = df_user.copy()
                 st.session_state.using_example = False
+                st.session_state.real_data_loaded = True
+                
+                # Clear any cached widget states that might cause double-run
+                st.session_state.pop("uploader_key", None)
                 
                 st.balloons()
-                latest = pd.to_datetime(df_user['Timestamp']).max().strftime('%b %d, %Y') if 'Timestamp' in df_user else "unknown"
-                st.success(f"Loaded {len(df_user):,} shots • Latest: {latest}")
-                st.rerun()  # Ensures clean refresh
+                latest = pd.to_datetime(df_user['Timestamp']).max().strftime('%b %d, %Y') if 'Timestamp' in df_user.columns else "unknown"
+                st.success(f"Successfully loaded your data — {len(df_user):,} shots • Latest: {latest}")
+                
+                # Force fresh rerun to prevent double-trigger
+                st.rerun()
                 
         except pd.errors.EmptyDataError:
-            st.error("EmptyDataError: No columns found. File might be empty or corrupted.")
+            st.error("EmptyDataError: File appears to have no columns.")
         except Exception as e:
-            st.error(f"Error reading CSV: {str(e)}\nTry re-downloading from SGT.")
+            st.error(f"Error processing CSV: {str(e)}\nTry re-downloading the file from SGT.")
 
-# If no data loaded yet → early exit
-if "df" not in st.session_state:
-    st.info("Upload your SGT shot data CSV or click the example button above to get started.")
+# ──────────────────────────────────────── Guard & Data Assignment ────────────────────────────────────────
+if st.session_state.shot_data is None:
+    st.info("Please upload your SGT shot data CSV or load the example data above to begin.")
     st.stop()
 
-df = st.session_state.df
+# Use the clean key
+df = st.session_state.shot_data
+
 df['Timestamp'] = pd.to_datetime(df['Timestamp'], errors='coerce')
 df['Date'] = df['Timestamp'].dt.date
 
-# Optional: small debug line you can remove later
-st.caption(f"Current data: {st.session_state.data_source or 'unknown'} • {len(df)} rows")
+# Reliable status line
+source_text = "Example Demo Data" if st.session_state.using_example else "Your Uploaded Shots"
+st.caption(f"Showing: {source_text} • {len(df):,} rows")
+
+# ──────────────────────────────────────── Rest of your dashboard code starts here ────────────────────────────────────────
+# (Strokes Gained, charts, etc. – leave unchanged)
+
 # ──────────────────────────────────────── STROKES GAINED SUMMARY ────────────────────────────────────────
 st.markdown("---")
 st.markdown("<h2 style='text-align: center;'>Strokes Gained Summary</h2>", unsafe_allow_html=True)
@@ -326,11 +353,9 @@ with col5: st.markdown(f"<h3 style='text-align:center;'>Total SG<br><span style=
 st.markdown("---")
 
 # ──────────────────────────────────────── ALL CHARTS WITH RESET BUTTONS ────────────────────────────────────────
-
 # Panel 1 - Approach Proximity
 st.subheader("1. Approach Proximity by Distance (ft) — PGA Tour Overlay")
 approaches = df[df['Starting Lie'].isin(['fairway', 'rough', 'deeprough', 'sand']) & (df['Carry (yd)'] > 50)].copy()
-
 fig1 = None
 if not approaches.empty:
     approaches['Band'] = pd.cut(approaches['Carry (yd)'], bins=[50,75,100,125,150,175,200,225,250,1000],
@@ -343,7 +368,6 @@ if not approaches.empty:
     fig1.add_trace(go.Bar(x=prox['Band'], y=prox['mean_ft'], name="You", text=prox['Label'], marker_color="#00ff88"))
     fig1.add_trace(go.Scatter(x=prox['Band'], y=pga_ft, mode="lines+markers", name="PGA Tour Avg", line=dict(color="red", dash="dash", width=3)))
     fig1.update_layout(title="Your Proximity vs PGA Tour", yaxis_title="Feet to Pin", template="plotly_dark", height=500)
-
 if fig1 is not None:
     if st.button("Reset Zoom / Autoscale", key="reset1", use_container_width=True, type="primary"):
         st.session_state.reset_trigger += 1
@@ -354,7 +378,6 @@ else:
 
 # Panels 2 & 3 — side-by-side again
 col2, col3 = st.columns(2)
-
 with col2:
     st.subheader("2. Proximity Heatmap (ft)")
     fig2 = None
@@ -363,7 +386,6 @@ with col2:
         fig2 = go.Figure(data=go.Heatmap(z=pivot.values, x=pivot.columns, y=pivot.index,
                                          colorscale='Portland', text=pivot.values.round(1), texttemplate="%{text}ft"))
         fig2.update_layout(title="2. Proximity Heatmap (ft)", template="plotly_dark")
-
     if fig2 is not None:
         if st.button("Reset Zoom / Autoscale", key="reset2", use_container_width=True, type="primary"):
             st.session_state.reset_trigger += 1
@@ -371,7 +393,6 @@ with col2:
         st.plotly_chart(fig2, use_container_width=True, key=f"chart2_{st.session_state.reset_trigger}")
     else:
         st.info("No approach shots found for heatmap")
-
 with col3:
     st.subheader("3. 100–150 yd Shot Pattern")
     fig3 = None
@@ -380,7 +401,6 @@ with col3:
         fig3 = px.scatter(mid, x='HLA (deg)', y='Finish Distance To Pin', color='Spin Axis (deg)', size='Ballspeed (mph)',
                           title="3. 100–150 yd Shot Pattern", template="plotly_dark")
         fig3.add_vline(x=0, line_dash="dash")
-
     if fig3 is not None:
         if st.button("Reset Zoom / Autoscale", key="reset3", use_container_width=True, type="primary"):
             st.session_state.reset_trigger += 1
@@ -391,20 +411,16 @@ with col3:
 
 # Panels 4 & 5 — side-by-side again
 col4, col5 = st.columns(2)
-
 with col4:
     st.subheader("4. Drive Distance by Hole — Per Round View")
     drives = df[df['Starting Lie'] == 'tee'].copy()
-
     if not drives.empty:
         # Only include holes with at least one driver shot
         hole_counts = drives['Hole'].value_counts()
         holes_with_drives = hole_counts[hole_counts > 0].index.tolist()
         drives = drives[drives['Hole'].isin(holes_with_drives)]
-
         # Nice round label for coloring and legend
         drives['Round'] = drives['Timestamp'].dt.strftime('%Y-%m-%d') + " — " + drives['Course'].fillna('Unknown Course')
-
         fig4 = px.box(
             drives,
             x='Hole',
@@ -413,27 +429,23 @@ with col4:
             title="Drive Distance by Hole (Only Holes Where Driver Was Used)",
             labels={'Total Distance (yd)': 'Total Distance (yards)'},
             template="plotly_dark",
-            points="all",  # Show individual shots as dots
+            points="all", # Show individual shots as dots
             hover_data=['Course', 'Timestamp', 'Round']
         )
-
-        fig4.update_traces(marker=dict(size=10, opacity=0.8))  # Visible dots
-        fig4.update_xaxes(type='category', title="Hole Number")  # Proper hole order
+        fig4.update_traces(marker=dict(size=10, opacity=0.8)) # Visible dots
+        fig4.update_xaxes(type='category', title="Hole Number") # Proper hole order
         fig4.update_layout(
             showlegend=True,
             legend_title="Round",
             height=650,
-            boxmode='group'  # Side-by-side boxes per round
+            boxmode='group' # Side-by-side boxes per round
         )
-
         if st.button("Reset Zoom / Autoscale", key="reset4", use_container_width=True, type="primary"):
             st.session_state.reset_trigger += 1
             st.rerun()
-
         st.plotly_chart(fig4, use_container_width=True, key=f"chart4_{st.session_state.reset_trigger}")
     else:
         st.info("No driver shots found in this data")
-
 with col5:
     st.subheader("5. Driver Efficiency Zone")
     fig5 = None
@@ -442,12 +454,10 @@ with col5:
                           title="5. Driver Efficiency Zone", template="plotly_dark")
         fig5.add_vrect(x0=11, x1=14, fillcolor="green", opacity=0.2)
         fig5.add_hrect(y0=160, y1=175, fillcolor="green", opacity=0.2)
-
     if fig5 is not None:
         if st.button("Reset Zoom / Autoscale", key="reset5", use_container_width=True, type="primary"):
             st.session_state.reset_trigger += 1
             st.rerun()
-
         st.plotly_chart(fig5, use_container_width=True, key=f"chart5_{st.session_state.reset_trigger}")
     else:
         st.info("No driver shots found")
@@ -465,13 +475,11 @@ if not putts.empty:
     ).reset_index()
     stats['% Made'] = (stats['made'] / stats['total']) * 100
     stats['Label'] = stats['% Made'].round(1).astype(str) + "% (" + stats['made'].astype(str) + "/" + stats['total'].astype(str) + ")"
-
     pga = [98, 85, 60, 36, 22, 12, 5]
     fig6 = go.Figure()
     fig6.add_trace(go.Bar(x=stats['Band'], y=stats['% Made'], name="You", text=stats['Label'], marker_color="#00FF88"))
     fig6.add_trace(go.Scatter(x=stats['Band'], y=pga, mode="lines+markers", name="PGA Tour Avg", line=dict(color="gold", dash="dash", width=3)))
     fig6.update_layout(title="Putt Make % by Distance", yaxis_title="% Made", template="plotly_dark")
-
 if fig6 is not None:
     if st.button("Reset Zoom / Autoscale", key="reset6", use_container_width=True, type="primary"):
         st.session_state.reset_trigger += 1
@@ -487,7 +495,6 @@ if not drives.empty:
     recent = drives.tail(50)
     fig7 = px.scatter_polar(recent, r='Carry (yd)', theta='HLA (deg)', color='Spin Axis (deg)', size='Ballspeed (mph)',
                             title="Drive Dispersion Pattern", template="plotly_dark")
-
 if fig7 is not None:
     if st.button("Reset Zoom / Autoscale", key="reset7", use_container_width=True, type="primary"):
         st.session_state.reset_trigger += 1
@@ -501,31 +508,19 @@ st.subheader("8. Where Shots End Up")
 ct = pd.crosstab(df['Starting Lie'], df['Finishing Lie'], normalize='index') * 100
 fig8 = px.bar(ct.reset_index().melt(id_vars='Starting Lie'), x='Starting Lie', y='value', color='Finishing Lie',
               title="Finishing Lie % by Starting Lie", template="plotly_dark")
-
 if st.button("Reset Zoom / Autoscale", key="reset8", use_container_width=True, type="primary"):
     st.session_state.reset_trigger += 1
     st.rerun()
-
 st.plotly_chart(fig8, use_container_width=True, key=f"chart8_{st.session_state.reset_trigger}")
 
 # Panel 9 - Career Volume
 st.subheader("9. Career Shot Volume")
 cumulative = df.groupby('Date').size().cumsum().reset_index(name='Total Shots')
 fig9 = px.area(cumulative, x='Date', y='Total Shots', title="Total Shots Logged Over Time", template="plotly_dark")
-
 if st.button("Reset Zoom / Autoscale", key="reset9", use_container_width=True, type="primary"):
     st.session_state.reset_trigger += 1
     st.rerun()
-
 st.plotly_chart(fig9, use_container_width=True, key=f"chart9_{st.session_state.reset_trigger}")
 
 st.markdown("---")
 st.caption("Jolf 5.0 • Built with love by rossbrandenburg • December 2025")
-
-
-
-
-
-
-
-
